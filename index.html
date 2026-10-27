@@ -132,7 +132,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent);font-weight:600}
   </div>
 </nav>
 <input type="file" id="photoIn" accept="image/*" capture="environment" hidden>
-<input type="file" id="restoreIn" accept=".json,application/json" hidden>
+<input type="file" id="restoreIn" accept=".json,.txt,application/json,text/plain" hidden>
 
 <script>
 const CATS=[
@@ -224,7 +224,7 @@ function backupBanner(){
   const real=S.tx.filter(t=>!t.sample);if(real.length<5)return '';
   const days=S.lastBackup?Math.floor((Date.now()-S.lastBackup)/864e5):null;
   if(days!==null&&days<14)return '';
-  return `<div class="banner"><span>${days===null?'Bạn chưa sao lưu sổ lần nào.':`Đã ${days} ngày chưa sao lưu.`}</span><button data-act="backup">Sao lưu ngay</button></div>`;
+  return `<div class="banner"><span>${days===null?'Bạn chưa sao lưu sổ lần nào.':`Đã ${days} ngày chưa sao lưu.`}</span><button data-act="backup" data-mode="${canShareFiles()?'share':'save'}">Sao lưu ngay</button></div>`;
 }
 function sampleBanner(){return S.tx.some(t=>t.sample)?`<div class="banner"><span>Đang có dữ liệu mẫu để bạn xem thử.</span><button data-act="clearSample">Xóa mẫu</button></div>`:''}
 
@@ -314,7 +314,8 @@ function viewSettings(){
       ${CATS.map(c=>`<div class="budget"><span class="row" style="gap:8px"><span class="dot" style="background:${col(c.id)}"></span>${c.name}</span><input class="num" id="b_${c.id}" data-budget="${c.id}" inputmode="numeric" value="${b[c.id]?(+b[c.id]).toLocaleString('vi-VN'):''}" placeholder="—"></div>`).join('')}
     </div>
     <div class="card stack"><h2>Sao lưu</h2><span class="sub">${where}</span>
-      <div class="two"><button class="btn" data-act="backup">Tải file sao lưu</button><button class="btn" data-act="restore">Khôi phục từ file</button></div>
+      ${canShareFiles()?'<button class="btn pri block" data-act="backup" data-mode="share">Gửi bản sao lưu (Drive, Zalo…)</button>':''}
+      <div class="two"><button class="btn" data-act="backup" data-mode="save">Tải file .json về máy</button><button class="btn" data-act="restore">Khôi phục từ file</button></div>
       ${S.tx.some(t=>t.sample)?'<button class="btn danger" data-act="clearSample">Xóa dữ liệu mẫu</button>':''}
     </div>
     ${installEvt?'<button class="btn pri block" data-act="install">Cài app vào màn hình chính</button>':''}
@@ -445,11 +446,29 @@ async function exportXlsx(scope){
   const buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});
   await saveFile(scope==='month'?`chi-tieu-${S.rMonth}.xlsx`:`chi-tieu-tat-ca-${today()}.xlsx`,new Blob([buf]));
 }
-async function backup(){
-  toast('Đang gom dữ liệu…');
+const canShareFiles=()=>{try{return !!(navigator.canShare&&navigator.canShare({files:[new File(['x'],'a.txt',{type:'text/plain'})]}))}catch(e){return false}};
+async function shareFile(base,text){
+  // Android chỉ cho chia sẻ một số loại file: thử .json trước, không được thì gửi .txt (nội dung y hệt)
+  for(const [ext,type] of [['json','application/json'],['txt','text/plain']]){
+    const f=new File([text],`${base}.${ext}`,{type});
+    let ok=false;try{ok=!!(navigator.canShare&&navigator.canShare({files:[f]}))}catch(e){}
+    if(!ok)continue;
+    try{await navigator.share({files:[f],title:f.name});return 'shared'}catch(e){return e&&e.name==='AbortError'?'cancel':'fail'}
+  }
+  return 'unsupported';
+}
+async function backup(mode){
   const photos={};for(const t of S.tx.filter(t=>t.photo)){try{const p=await store.getPhoto(t.id);if(p)photos[t.id]=p}catch(e){}}
   const data={app:'so-chi-tieu',version:1,exported:new Date().toISOString(),settings:S.settings,tx:S.tx,photos};
-  if(await saveFile(`sao-luu-chi-tieu-${today()}.json`,JSON.stringify(data))){S.lastBackup=Date.now();IDB.put('meta',S.lastBackup,'lastBackup').catch(()=>{});render()}
+  const text=JSON.stringify(data),base=`sao-luu-chi-tieu-${today()}`;
+  let done=false;
+  if(mode==='share'){
+    const r=await shareFile(base,text);
+    if(r==='shared'){done=true;toast('Đã gửi bản sao lưu')}
+    else if(r==='cancel')return;
+    else done=await saveFile(base+'.json',text);
+  }else done=await saveFile(base+'.json',text);
+  if(done){S.lastBackup=Date.now();IDB.put('meta',S.lastBackup,'lastBackup').catch(()=>{});render()}
 }
 async function restore(file){
   let d;try{d=JSON.parse(await file.text())}catch(e){toast('File không đọc được');return}
@@ -483,7 +502,7 @@ document.addEventListener('click',async e=>{
     const t=E.orig;closeSheet();try{await store.delTx(t);toast('Đã xóa')}catch(err){toast('Chưa xóa được')}return}
   if(a==='rm'){S.rMonth=shiftMonth(S.rMonth,+el.dataset.k);render();return}
   if(a==='xlsx'){exportXlsx(el.dataset.scope);return}
-  if(a==='backup'){backup();return}
+  if(a==='backup'){backup(el.dataset.mode);return}
   if(a==='restore'){$('#restoreIn').value='';$('#restoreIn').click();return}
   if(a==='payRecur'){payRecur(el.dataset.id);return}
   if(a==='skipRecur'){const r=S.settings.recurring.find(x=>x.id===el.dataset.id);if(r){r.last=curMonth();store.saveSettings();toast('Đã bỏ qua tháng này')}return}

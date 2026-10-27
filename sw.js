@@ -1,4 +1,4 @@
-const VERSION = 'chitieu-v2';
+const VERSION = 'chitieu-v3';
 const CORE = ['./', './index.html', './manifest.webmanifest', './xlsx.full.min.js',
   './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
