@@ -1,4 +1,4 @@
-const VERSION = 'chitieu-v1';
+const VERSION = 'chitieu-v2';
 const CORE = ['./', './index.html', './manifest.webmanifest', './xlsx.full.min.js',
   './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
@@ -17,8 +17,10 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   // App page: network first so updates arrive, cached copy when offline
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).then(r => { const c = r.clone(); caches.open(VERSION).then(x => x.put('./index.html', c)); return r; })
-      .catch(() => caches.match('./index.html')));
+    e.respondWith(fetch(req).then(r => {
+      if (!r.ok) return caches.match('./index.html').then(hit => hit || r);
+      const c = r.clone(); caches.open(VERSION).then(x => x.put('./index.html', c)); return r;
+    }).catch(() => caches.match('./index.html')));
     return;
   }
   // Fonts and own files: cache first
