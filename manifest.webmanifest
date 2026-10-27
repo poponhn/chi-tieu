@@ -1,0 +1,20 @@
+{
+  "name": "Sổ chi tiêu",
+  "short_name": "Chi tiêu",
+  "description": "Ghi chi tiêu cá nhân, chạy offline",
+  "lang": "vi",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2F4F3",
+  "theme_color": "#0A7356",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Thêm khoản chi", "short_name": "Thêm chi", "url": "./?add=1", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] }
+  ]
+}
